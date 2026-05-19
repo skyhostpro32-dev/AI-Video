@@ -1,10 +1,10 @@
 streamlit
 moviepy==1.0.3
 gtts
-pillow
 imageio
 imageio-ffmpeg
 numpy
+pillow
 decorator
 proglog
 tqdm
