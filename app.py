@@ -1,19 +1,17 @@
 import streamlit as st
-from moviepy.editor import ImageClip, AudioFileClip
-from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
 import textwrap
-import os
+import random
 
 # ---------------- PAGE CONFIG ----------------
 
 st.set_page_config(
-    page_title="AI Video Generator",
+    page_title="AI Text to Image Generator",
     layout="centered"
 )
 
-# ---------------- CSS ----------------
+# ---------------- UI STYLE ----------------
 
 st.markdown("""
 <style>
@@ -31,7 +29,7 @@ h1{
 
 .stButton>button{
     width:100%;
-    background:linear-gradient(90deg, #06b6d4, #3b82f6);
+    background:linear-gradient(90deg, #22c55e, #06b6d4);
     color:white;
     border:none;
     border-radius:12px;
@@ -45,96 +43,80 @@ h1{
 
 # ---------------- TITLE ----------------
 
-st.title("🎬 AI Text To Video Generator")
-st.write("Convert text into AI narrated video")
+st.title("🎨 AI Text → Image Generator")
+st.write("Enter a prompt and generate AI-style images instantly")
 
 # ---------------- INPUT ----------------
 
-video_text = st.text_area("Enter Video Text", height=200)
-
-language = st.selectbox(
-    "Choose Language",
-    ["en", "ta", "hi", "te", "ml", "mr", "bn"]
-)
+prompt = st.text_area("Enter your image prompt", height=150)
 
 # ---------------- GENERATE ----------------
 
-if st.button("🚀 Generate Video"):
+if st.button("🚀 Generate Image"):
 
-    if video_text.strip() == "":
-        st.warning("Please enter text")
+    if prompt.strip() == "":
+        st.warning("Please enter a prompt")
 
     else:
-        with st.spinner("Generating Video..."):
-
-            # ---------------- TEXT TO SPEECH ----------------
-            tts = gTTS(text=video_text, lang=language)
-
-            audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-            tts.save(audio_file.name)
-
-            audio_clip = AudioFileClip(audio_file.name)
-            duration = audio_clip.duration
+        with st.spinner("Creating image..."):
 
             # ---------------- CREATE IMAGE ----------------
-            width, height = 1280, 720
 
-            image = Image.new("RGB", (width, height), color=(15, 23, 42))
+            width, height = 1024, 1024
+
+            # random gradient background
+            color1 = (random.randint(0,50), random.randint(0,50), random.randint(80,150))
+            color2 = (random.randint(0,50), random.randint(80,150), random.randint(150,255))
+
+            image = Image.new("RGB", (width, height), color1)
             draw = ImageDraw.Draw(image)
 
+            # simple gradient effect
+            for i in range(height):
+                r = int(color1[0] + (color2[0] - color1[0]) * (i / height))
+                g = int(color1[1] + (color2[1] - color1[1]) * (i / height))
+                b = int(color1[2] + (color2[2] - color1[2]) * (i / height))
+                draw.line([(0, i), (width, i)], fill=(r, g, b))
+
+            # ---------------- TEXT ----------------
+
             try:
-                font = ImageFont.truetype("arial.ttf", 45)
+                font = ImageFont.truetype("arial.ttf", 40)
             except:
                 font = ImageFont.load_default()
 
-            wrapped_text = textwrap.fill(video_text, width=35)
+            wrapped_text = textwrap.fill(prompt, width=30)
 
-            draw.text(
-                (80, 250),
-                wrapped_text,
-                fill="white",
-                font=font
-            )
+            # center text
+            text_bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
 
-            image_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-            image.save(image_file.name)
+            x = (width - text_width) / 2
+            y = (height - text_height) / 2
 
-            # ---------------- CREATE VIDEO ----------------
-            video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
+            # shadow
+            draw.multiline_text((x+3, y+3), wrapped_text, font=font, fill="black")
 
-            video_clip = (
-                ImageClip(image_file.name)
-                .set_duration(duration)
-                .set_audio(audio_clip)
-                .set_fps(24)
-            )
+            # main text
+            draw.multiline_text((x, y), wrapped_text, font=font, fill="white")
 
-            video_clip.write_videofile(
-                video_path,
-                codec="libx264",
-                audio_codec="aac",
-                fps=24,
-                temp_audiofile="temp-audio.m4a",
-                remove_temp=True,
-                verbose=False,
-                logger=None
-            )
+            # ---------------- SAVE ----------------
 
-            # ---------------- SHOW VIDEO ----------------
-            st.success("✅ Video Generated Successfully!")
+            img_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+            image.save(img_file.name)
 
-            with open(video_path, "rb") as f:
-                video_bytes = f.read()
-                st.video(video_bytes)
+            # ---------------- SHOW ----------------
+
+            st.success("✅ Image Generated Successfully!")
+            st.image(image, caption="Generated AI Image", use_container_width=True)
 
             # ---------------- DOWNLOAD ----------------
-            with open(video_path, "rb") as file:
-                st.download_button(
-                    "⬇ Download Video",
-                    data=file,
-                    file_name="ai_video.mp4",
-                    mime="video/mp4"
-                )
 
-            # ---------------- CLEANUP ----------------
-            audio_clip.close()
+            with open(img_file.name, "rb") as file:
+                st.download_button(
+                    "⬇ Download Image",
+                    data=file,
+                    file_name="ai_image.png",
+                    mime="image/png"
+                )
