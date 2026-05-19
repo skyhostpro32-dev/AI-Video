@@ -1,11 +1,9 @@
 import streamlit as st
-from moviepy import (
-    AudioFileClip,
-    ImageClip
-)
+from moviepy.editor import ImageClip, AudioFileClip
 from gtts import gTTS
 from PIL import Image, ImageDraw, ImageFont
 import tempfile
+import textwrap
 
 # ---------------- PAGE CONFIG ----------------
 
@@ -14,7 +12,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# ---------------- CSS ----------------
 
 st.markdown("""
 <style>
@@ -50,10 +48,6 @@ h1{
     font-weight:bold;
 }
 
-textarea{
-    font-size:18px !important;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -61,7 +55,7 @@ textarea{
 
 st.title("🎬 AI Text To Video Generator")
 
-st.write("Convert text into AI narrated video")
+st.write("Convert text into narrated video")
 
 # ---------------- INPUT ----------------
 
@@ -70,7 +64,7 @@ video_text = st.text_area(
     height=200
 )
 
-voice_language = st.selectbox(
+language = st.selectbox(
     "Choose Language",
     [
         "en",
@@ -83,22 +77,23 @@ voice_language = st.selectbox(
     ]
 )
 
-# ---------------- GENERATE VIDEO ----------------
+# ---------------- GENERATE ----------------
 
 if st.button("🚀 Generate Video"):
 
-    if video_text == "":
+    if not video_text.strip():
+
         st.warning("Please enter text")
 
     else:
 
-        with st.spinner("Generating AI Video..."):
+        with st.spinner("Generating Video..."):
 
             # ---------------- TEXT TO SPEECH ----------------
 
             tts = gTTS(
                 text=video_text,
-                lang=voice_language
+                lang=language
             )
 
             audio_temp = tempfile.NamedTemporaryFile(
@@ -121,46 +116,28 @@ if st.button("🚀 Generate Video"):
 
             draw = ImageDraw.Draw(image)
 
-            # Optional Font
-
             try:
+
                 font = ImageFont.truetype(
                     "arial.ttf",
-                    45
+                    50
                 )
 
             except:
+
                 font = ImageFont.load_default()
 
-            # Wrap Text
-
-            wrapped_text = ""
-
-            words = video_text.split()
-
-            line = ""
-
-            for word in words:
-
-                if len(line + word) < 35:
-                    line += word + " "
-
-                else:
-                    wrapped_text += line + "\n\n"
-                    line = word + " "
-
-            wrapped_text += line
-
-            # Draw Text
-
-            draw.text(
-                (80, 180),
-                wrapped_text,
-                fill=(255,255,255),
-                font=font
+            wrapped_text = textwrap.fill(
+                video_text,
+                width=30
             )
 
-            # Save Image
+            draw.text(
+                (80, 200),
+                wrapped_text,
+                fill="white",
+                font=font
+            )
 
             image_temp = tempfile.NamedTemporaryFile(
                 delete=False,
@@ -169,7 +146,7 @@ if st.button("🚀 Generate Video"):
 
             image.save(image_temp.name)
 
-            # ---------------- AUDIO CLIP ----------------
+            # ---------------- AUDIO ----------------
 
             audio_clip = AudioFileClip(
                 audio_temp.name
@@ -177,63 +154,44 @@ if st.button("🚀 Generate Video"):
 
             duration = audio_clip.duration
 
-            # ---------------- IMAGE CLIP ----------------
+            # ---------------- IMAGE VIDEO ----------------
 
-            image_clip = ImageClip(
-                image_temp.name
+            video_clip = (
+                ImageClip(image_temp.name)
+                .set_duration(duration)
+                .set_audio(audio_clip)
+                .set_fps(24)
             )
 
-            image_clip = image_clip.resized(
-                width=1280
+            output_video = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".mp4"
             )
 
-            image_clip = image_clip.with_duration(
-                duration
-            )
-
-            image_clip = image_clip.with_fps(24)
-
-            # ---------------- FINAL VIDEO ----------------
-
-            final_video = image_clip.with_audio(
-                audio_clip
-            )
-
-            output_path = "final_video.mp4"
+            output_path = output_video.name
 
             # ---------------- EXPORT VIDEO ----------------
 
-            final_video.write_videofile(
+            video_clip.write_videofile(
                 output_path,
                 codec="libx264",
                 audio_codec="aac",
                 fps=24
             )
 
-            # ---------------- SUCCESS ----------------
-
-            st.success(
-                "✅ Video Generated Successfully!"
-            )
-
             # ---------------- SHOW VIDEO ----------------
 
-            video_file = open(
-                output_path,
-                "rb"
-            )
+            st.success("✅ Video Generated Successfully!")
 
-            video_bytes = video_file.read()
+            with open(output_path, "rb") as video_file:
 
-            st.video(video_bytes)
+                video_bytes = video_file.read()
 
-            # ---------------- DOWNLOAD ----------------
-
-            with open(output_path, "rb") as file:
+                st.video(video_bytes)
 
                 st.download_button(
                     "⬇ Download Video",
-                    file,
+                    data=video_bytes,
                     file_name="ai_video.mp4",
                     mime="video/mp4"
                 )
