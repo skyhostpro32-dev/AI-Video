@@ -1,10 +1,11 @@
 import streamlit as st
-from moviepy.editor import 
+from moviepy import (
+    AudioFileClip,
+    ImageClip
+)
 from gtts import gTTS
 from PIL import Image, ImageDraw
-import numpy as np
 import tempfile
-import os
 
 # ---------------- PAGE CONFIG ----------------
 
@@ -47,6 +48,10 @@ h1{
     padding:12px;
     font-size:18px;
     font-weight:bold;
+}
+
+textarea{
+    font-size:18px !important;
 }
 
 </style>
@@ -131,36 +136,44 @@ if st.button("🚀 Generate Video"):
 
             image.save(image_path)
 
-            # ---------------- CREATE VIDEO ----------------
+            # ---------------- LOAD AUDIO ----------------
 
             audio_clip = AudioFileClip(audio_file.name)
 
             duration = audio_clip.duration
 
-            image_clip = ImageClip(image_path)\
-                .set_duration(duration)
+            # ---------------- CREATE VIDEO ----------------
 
-            video_clip = image_clip.set_audio(audio_clip)
+            image_clip = ImageClip(image_path)
+
+            image_clip = image_clip.with_duration(duration)
+
+            video_clip = image_clip.with_audio(audio_clip)
 
             output_path = "final_video.mp4"
 
+            # ---------------- EXPORT VIDEO ----------------
+
             video_clip.write_videofile(
                 output_path,
-                fps=24
+                fps=24,
+                codec="libx264",
+                audio_codec="aac"
             )
 
             # ---------------- SHOW VIDEO ----------------
 
-            st.success("Video Generated Successfully!")
+            st.success("✅ Video Generated Successfully!")
 
             st.video(output_path)
 
-            # ---------------- DOWNLOAD BUTTON ----------------
+            # ---------------- DOWNLOAD ----------------
 
             with open(output_path, "rb") as file:
 
                 st.download_button(
                     "⬇ Download Video",
                     file,
-                    file_name="ai_video.mp4"
+                    file_name="ai_video.mp4",
+                    mime="video/mp4"
                 )
