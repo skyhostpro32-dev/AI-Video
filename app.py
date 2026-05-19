@@ -4,7 +4,7 @@ from moviepy import (
     ImageClip
 )
 from gtts import gTTS
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import tempfile
 
 # ---------------- PAGE CONFIG ----------------
@@ -44,7 +44,7 @@ h1{
     );
     color:white;
     border:none;
-    border-radius:10px;
+    border-radius:12px;
     padding:12px;
     font-size:18px;
     font-weight:bold;
@@ -101,12 +101,12 @@ if st.button("🚀 Generate Video"):
                 lang=voice_language
             )
 
-            audio_file = tempfile.NamedTemporaryFile(
+            audio_temp = tempfile.NamedTemporaryFile(
                 delete=False,
                 suffix=".mp3"
             )
 
-            tts.save(audio_file.name)
+            tts.save(audio_temp.name)
 
             # ---------------- CREATE IMAGE ----------------
 
@@ -121,51 +121,111 @@ if st.button("🚀 Generate Video"):
 
             draw = ImageDraw.Draw(image)
 
-            wrapped_text = video_text[:300]
+            # Optional Font
+
+            try:
+                font = ImageFont.truetype(
+                    "arial.ttf",
+                    45
+                )
+
+            except:
+                font = ImageFont.load_default()
+
+            # Wrap Text
+
+            wrapped_text = ""
+
+            words = video_text.split()
+
+            line = ""
+
+            for word in words:
+
+                if len(line + word) < 35:
+                    line += word + " "
+
+                else:
+                    wrapped_text += line + "\n\n"
+                    line = word + " "
+
+            wrapped_text += line
+
+            # Draw Text
 
             draw.text(
-                (80, 250),
+                (80, 180),
                 wrapped_text,
-                fill=(255,255,255)
+                fill=(255,255,255),
+                font=font
             )
 
-            image_path = tempfile.NamedTemporaryFile(
+            # Save Image
+
+            image_temp = tempfile.NamedTemporaryFile(
                 delete=False,
                 suffix=".png"
-            ).name
+            )
 
-            image.save(image_path)
+            image.save(image_temp.name)
 
-            # ---------------- LOAD AUDIO ----------------
+            # ---------------- AUDIO CLIP ----------------
 
-            audio_clip = AudioFileClip(audio_file.name)
+            audio_clip = AudioFileClip(
+                audio_temp.name
+            )
 
             duration = audio_clip.duration
 
-            # ---------------- CREATE VIDEO ----------------
+            # ---------------- IMAGE CLIP ----------------
 
-            image_clip = ImageClip(image_path)
+            image_clip = ImageClip(
+                image_temp.name
+            )
 
-            image_clip = image_clip.with_duration(duration)
+            image_clip = image_clip.resized(
+                width=1280
+            )
 
-            video_clip = image_clip.with_audio(audio_clip)
+            image_clip = image_clip.with_duration(
+                duration
+            )
+
+            image_clip = image_clip.with_fps(24)
+
+            # ---------------- FINAL VIDEO ----------------
+
+            final_video = image_clip.with_audio(
+                audio_clip
+            )
 
             output_path = "final_video.mp4"
 
             # ---------------- EXPORT VIDEO ----------------
 
-            video_clip.write_videofile(
+            final_video.write_videofile(
                 output_path,
-                fps=24,
                 codec="libx264",
-                audio_codec="aac"
+                audio_codec="aac",
+                fps=24
+            )
+
+            # ---------------- SUCCESS ----------------
+
+            st.success(
+                "✅ Video Generated Successfully!"
             )
 
             # ---------------- SHOW VIDEO ----------------
 
-            st.success("✅ Video Generated Successfully!")
+            video_file = open(
+                output_path,
+                "rb"
+            )
 
-            st.video(output_path)
+            video_bytes = video_file.read()
+
+            st.video(video_bytes)
 
             # ---------------- DOWNLOAD ----------------
 
